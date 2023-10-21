@@ -34,6 +34,7 @@ intellij {
     plugins.set(properties("platformPlugins").split(',').map(String::trim).filter(String::isNotEmpty))
 }
 
+
 // Configure Gradle Changelog Plugin - read more: https://github.com/JetBrains/gradle-changelog-plugin
 changelog {
     version.set(properties("pluginVersion"))
@@ -88,6 +89,22 @@ tasks {
                 getOrNull(properties("pluginVersion")) ?: getLatest()
             }.toHTML()
         })
+    }
+
+    runIde {
+        // specify to use local PhpStorm installation
+        // doc is wrong, do not use ideDir = ... because ideDir is read-only
+        ideDir.set(file("/Applications/PhpStorm.app/Contents"))
+
+        // enable auto-reload when `runIde` is running, and `buildPlugin` is executed
+        autoReloadPlugins.set(true)
+
+    }
+
+    // explicitly disable to allow for autoreload
+    // @see https://plugins.jetbrains.com/docs/intellij/ide-development-instance.html#enabling-auto-reload
+    buildSearchableOptions {
+        enabled = false
     }
 
     // Configure UI tests plugin

@@ -1,18 +1,27 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
-<idea-plugin>
+<idea-plugin require-restart="false">
     <id>com.github.tognitos.intellijstringconcatheredocplugin</id>
-    <name>intellij-string-concat-heredoc-plugin</name>
+    <name>string-concat-heredoc</name>
     <vendor>tognitos</vendor>
 
+    <depends>com.jetbrains.php</depends>
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <applicationService serviceImplementation="com.github.tognitos.intellijstringconcatheredocplugin.services.MyApplicationService"/>
-        <projectService serviceImplementation="com.github.tognitos.intellijstringconcatheredocplugin.services.MyProjectService"/>
+<!--        <applicationService serviceImplementation="com.github.tognitos.intellijstringconcatheredocplugin.services.MyApplicationService"/>-->
+<!--        <projectService serviceImplementation="com.github.tognitos.intellijstringconcatheredocplugin.services.MyProjectService"/>-->
+        <intentionAction>
+            <className>org.intellij.sdk.intention.ConditionalOperatorConverter</className>
+            <category>SDK intentions</category>
+        </intentionAction>
+        <intentionAction>
+            <className>org.intellij.sdk.intention.StringConcatenationToHeredoc</className>
+            <category>PHP intentions</category>
+        </intentionAction>
     </extensions>
 
-    <applicationListeners>
-        <listener class="com.github.tognitos.intellijstringconcatheredocplugin.listeners.MyProjectManagerListener"
-                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
-    </applicationListeners>
+<!--    <applicationListeners>-->
+<!--        <listener class="com.github.tognitos.intellijstringconcatheredocplugin.listeners.MyProjectManagerListener"-->
+<!--                  topic="com.intellij.openapi.project.ProjectManagerListener"/>-->
+<!--    </applicationListeners>-->
 </idea-plugin>
