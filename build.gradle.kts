@@ -6,8 +6,8 @@ fun properties(key: String) = project.findProperty(key).toString()
 plugins {
     // Java support
     id("java")
-    // Kotlin support
-    id("org.jetbrains.kotlin.jvm") version "1.6.10"
+    // Kotlin support -> make sure it's the same version as the kotlin plugin in IntelliJ
+    id("org.jetbrains.kotlin.jvm") version "1.9.20"
     // Gradle IntelliJ Plugin
     id("org.jetbrains.intellij") version "1.4.0"
     // Gradle Changelog Plugin
@@ -129,5 +129,12 @@ tasks {
         // Specify pre-release label to publish the plugin in a custom Release Channel automatically. Read more:
         // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
         channels.set(listOf(properties("pluginVersion").split('-').getOrElse(1) { "default" }.split('.').first()))
+    }
+
+    jar {
+        // jar() gets executed at some point when the gradle "build" task is executed
+        // it complains if this duplicatesStrategy is not defined. WARN behaves as INCLUDE, which basically overrides
+        // the original file with the duplicate
+        duplicatesStrategy = DuplicatesStrategy.WARN
     }
 }

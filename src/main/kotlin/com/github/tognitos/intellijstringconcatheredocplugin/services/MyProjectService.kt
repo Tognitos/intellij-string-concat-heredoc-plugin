@@ -8,7 +8,5 @@ class MyProjectService(project: Project) {
     init {
         println(MyBundle.message("projectService", project.name))
         println("FINALLY WORKINssG2");
-
-
     }
 }

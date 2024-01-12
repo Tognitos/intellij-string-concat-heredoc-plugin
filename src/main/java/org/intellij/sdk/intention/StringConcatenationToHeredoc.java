@@ -6,7 +6,7 @@ import com.intellij.codeInsight.intention.IntentionAction;
 import com.intellij.codeInsight.intention.PsiElementBaseIntentionAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
-import com.intellij.profiler.ultimate.hprof.visitors.ReferenceVisitor;
+//import com.intellij.profiler.ultimate.hprof.visitors.ReferenceVisitor;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -158,7 +158,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
             return false;
         }
 
-        // TODO implement for echo calls with a lot of `,` , only any of the echo statements contain HTML or any expression
+        // TODO implement for echo calls with a lot of `,` , only if any of the echo statements contain HTML or any expression
 
         boolean available = this.isElementOrAncestorAConcatenation(element);
 
@@ -421,7 +421,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         printScopesAndVariables();
         // TODO : reformat CONTENT of heredoc based on content type (e.g. format HTML decently if possible)
 
-        String heredocContent = String.format(heredocContentWithPlaceholders, placeholdersValues);
+        String heredocContent = String.format(heredocContentWithPlaceholders, (Object[]) placeholdersValues);
         System.out.println("Final version of `heredocContentWithPlaceholders` " + heredocContentWithPlaceholders);
         return heredocContent;
     }
