@@ -4,9 +4,11 @@ package org.intellij.sdk.intention;
 
 import com.intellij.codeInsight.intention.IntentionAction;
 import com.intellij.codeInsight.intention.PsiElementBaseIntentionAction;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 //import com.intellij.profiler.ultimate.hprof.visitors.ReferenceVisitor;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -95,7 +97,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
             if (newChild instanceof FunctionReference && ((FunctionReference) newChild).getName().equals("sprintf")) {
                 MyTreeChangeListener.sprintfCall = (FunctionReference) newChild;
                 System.out.println("Found sprintfFunction reference!");
-            } else if (newChild instanceof PsiElement) {
+            } else if (newChild != null) {
                 System.out.println("new child is instance of psiElement, usually a reference to the whole new document");
 //                System.out.println(newChild.getText());
             }
@@ -208,20 +210,16 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         Statement parentStatement = PsiTreeUtil.getParentOfType(element, Statement.class);
         // will be used to know where to declare variables for fn calls
 
-
-
-        System.out.println("instance of class " + parentStatement.getClass().getName());
-
         PhpConvertConcatenationToSprintfIntention intention = new PhpConvertConcatenationToSprintfIntention();
         String heredocContent = null;
 
         if (intention.isAvailable(project, editor, element)) {
-            System.out.println("Sprintf intention is available!");
             try {
                 heredocContent = StringConcatenationToHeredoc.useSprintf(
                         project, editor, element,
                         parentStatement, topConcatenation, intention);
             } catch (UnexpectedException e) {
+                System.out.println("Could not generate hereddoc content: " + project + editor + element + parentStatement + topConcatenation + intention);
                 e.printStackTrace();
             }
         } else {
@@ -239,7 +237,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         }
 
 
-        /**
+        /*
          * Structure of heredoc as a StringLiteralExpression:
          *  - heredoc start (e.g. <<<DELIMITER)
          *  - heredoc content (e.g. <div>Hi $username</div>)
@@ -253,18 +251,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
                 StringLiteralExpression.class,
                 "<<<" + heredocDelimiter + "\n" + heredocContent + "\n" + heredocDelimiter + ";"
         );
-//        heredoc = (StringLiteralExpression) codeStylist.reformat(heredoc);
-//        Statement statement =
-//                (Statement) PhpPsiElementFactory.createStatement(project, variable.getText() + " = 0;");
-//        statement = (Statement) codeStylist.reformat(statement);
-//        heredocExpression = PhpASTFactory.composite()
 
-        // finally
-//        topConcatenation.replace(heredoc);
-//        Statement newTopStatement = getNewTopStatement();
-
-
-//        newTopStatement.getParent().addAfter(heredoc, newTopStatement);
         StringConcatenationToHeredoc.myTreeChangeListener.sprintfCall.replace(heredoc);
     }
 
@@ -277,6 +264,8 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         return newTopStatement;
     }
 
+
+
     public static String useSprintf(
             @NotNull Project project, Editor editor, @NotNull PsiElement element,
             Statement parentStatement, ConcatenationExpression topConcatenation, PhpConvertConcatenationToSprintfIntention intention) throws UnexpectedException {
@@ -286,19 +275,47 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         }
 
         PsiManager psiManager = PsiManager.getInstance(project);
-        psiManager.addPsiTreeChangeListener(StringConcatenationToHeredoc.myTreeChangeListener);
+
+//        Disposable disposable = Disposer.newDisposable(project, "myTreeChangeListener for PhpConvertConcatenationToSprintfIntention");
+        psiManager.addPsiTreeChangeListener(StringConcatenationToHeredoc.myTreeChangeListener); // , disposable);
+
+        System.out.println("current element before sprintf intention");
+        System.out.println(element);
+        System.out.println("top concatenation element before sprintf intention");
+        System.out.println(topConcatenation);
+        PsiElement topConcatenationPrevSibling = topConcatenation.getPrevSibling();
+        System.out.println("topConcatenationPrevSibling before");
+        System.out.println(topConcatenationPrevSibling);
 
         intention.startInWriteAction();
         intention.invoke(project, editor, element);
 
+
+        System.out.println("current element after sprintf intention");
+        System.out.println(element);
+        System.out.println("top concatenation element after sprintf intention");
+        System.out.println(topConcatenation);
+        System.out.println("topConcatenationPrevSibling after");
+        System.out.println(topConcatenationPrevSibling);
+
+
+
+
         psiManager.removePsiTreeChangeListener(StringConcatenationToHeredoc.myTreeChangeListener);
+//        Disposer.dispose(disposable);
 
-        FunctionReference sprintfCall = StringConcatenationToHeredoc.myTreeChangeListener.sprintfCall;
+        FunctionReference sprintfCall = (FunctionReference) StringConcatenationToHeredoc.myTreeChangeListener.sprintfCall;
 
-        if (!sprintfCall.getName().equals("sprintf")) {
+        if (sprintfCall == null) {
+            System.out.println("Function is null?");
+            throw new UnexpectedException("Containing function is null");
+        }
+        else if (!"sprintf".equals(sprintfCall.getName())) {
             System.out.println("Function is not sprintf?");
             throw new UnexpectedException("Containing function is not sprintf call");
         }
+
+        System.out.println("Are previous the same?" + (topConcatenationPrevSibling == sprintfCall.getPrevSibling()));
 
         PsiElement[] params = sprintfCall.getParameters();
         String stringToInterpolate = params[0].getText();
