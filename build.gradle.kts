@@ -58,6 +58,12 @@ changelog {
 
 // Configure Gradle Qodana Plugin - read more: https://github.com/JetBrains/gradle-qodana-plugin
 qodana {
+
+    // by default result path is $projectPath/build/results
+    // resultsPath.set("some/output/path")
+
+    // see defaults: https://www.jetbrains.com/help/qodana/qodana-gradle-plugin.html#qodana+%7B+%7D+extension+configuration
+
     cachePath.set(projectDir.resolve(".qodana").canonicalPath)
     reportPath.set(projectDir.resolve("build/reports/inspections").canonicalPath)
     saveReport.set(true)
@@ -126,7 +132,6 @@ tasks {
                 println("Could not find file at path ${it.path} : Are you inside a CI job?")
             }
         }
-
 
         // enable auto-reload when `runIde` is running, and `buildPlugin` is executed
         autoReloadPlugins.set(true)

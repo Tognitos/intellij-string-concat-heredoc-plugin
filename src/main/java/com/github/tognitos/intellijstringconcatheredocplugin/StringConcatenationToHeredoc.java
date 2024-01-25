@@ -1,35 +1,28 @@
 // Copyright 2000-2022 JetBrains s.r.o. and other contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
 
-package org.intellij.sdk.intention;
+package com.github.tognitos.intellijstringconcatheredocplugin;
 
 import com.intellij.codeInsight.intention.IntentionAction;
 import com.intellij.codeInsight.intention.PsiElementBaseIntentionAction;
-import com.intellij.openapi.Disposable;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 //import com.intellij.profiler.ultimate.hprof.visitors.ReferenceVisitor;
-import com.intellij.openapi.util.Disposer;
 import com.intellij.psi.*;
-import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.IncorrectOperationException;
-import com.intellij.util.ui.tree.TreeUtil;
 import com.jetbrains.php.codeInsight.PhpScopeHolder;
 import com.jetbrains.php.lang.inspections.PhpScopeHolderVisitor;
 import com.jetbrains.php.lang.intentions.strings.PhpConvertConcatenationToSprintfIntention;
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.*;
-import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import com.jetbrains.php.lang.psi.elements.impl.PhpEchoStatementImpl;
 import com.jetbrains.php.lang.psi.visitors.PhpElementVisitor;
-import com.thoughtworks.qdox.model.expression.FieldRef;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.rmi.UnexpectedException;
 import java.util.*;
-import java.util.function.Function;
-import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,17 +63,17 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
     }
 
     /**
-     * Checks whether this intention is available at the caret offset in file - the caret must sit just before a "?"
-     * character in a ternary statement. If this condition is met, this intention's entry is shown in the available
-     * intentions list.
+     * Checks whether this intention is available at the caret offset in file - the caret must sit:
+     * - at any point inside a concatenation expression
+     * - at any point inside an "echo" expression with commas
      *
      * <p>Note: this method must do its checks quickly and return.</p>
      *
      * @param project a reference to the Project object being edited.
      * @param editor  a reference to the object editing the project source
      * @param element a reference to the PSI element currently under the caret
-     * @return {@code true} if the caret is in a literal string element, so this functionality should be added to the
-     * intention menu or {@code false} for all other types of caret positions
+     * @return {@code true} if the caret is in an expression which can be converted by this plugin
+     *  {@code false} for all other types of caret positions
      */
     public boolean isAvailable(@NotNull Project project, Editor editor, @Nullable PsiElement element) {
         // Quick sanity check
@@ -109,6 +102,30 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
                 || (PsiTreeUtil.getParentOfType(element, ConcatenationExpression.class) != null);
     }
 
+    /**
+     * Expressions which will return {@code true} are:
+     * echo $someVar, '<tag>', fnReturnString(), "</tag>";
+     * @param element
+     * @return  true if passed element is located within an "echo" expression with commas
+     *          false otherwise
+     */
+    public static boolean isElementWithinEchoWithCommas(PsiElement element) {
+        if (element == null) return false;
+
+        PhpEchoStatementImpl parentEchoStatement = PsiTreeUtil.getParentOfType(element, PhpEchoStatementImpl.class);
+
+        if (parentEchoStatement == null) return false;
+//        PhpElementVisitor commaVisitor = new PhpElementVisitor() {
+//            @Override
+//            public void visitPhpElement(PhpPsiElement element) {
+//                super.visitPhpElement(element);
+//                // if found then throw StopVisitingException
+//            }
+//        };
+        // replace this with Visitor for better performance?
+        return Arrays.stream(parentEchoStatement.getChildren()).anyMatch(psiElement -> psiElement.textMatches(","));
+    }
+
     public static void nl() {
         System.out.println("\n");
     }
@@ -134,16 +151,16 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         Statement parentStatement = PsiTreeUtil.getParentOfType(element, Statement.class);
         // will be used to know where to declare variables for fn calls
 
-        PhpConvertConcatenationToSprintfIntention intention = new PhpConvertConcatenationToSprintfIntention();
+        PhpConvertConcatenationToSprintfIntention concatToSprintf = new PhpConvertConcatenationToSprintfIntention();
         TupleHeredocSprintf tuple = null;
 
-        if (intention.isAvailable(project, editor, element)) {
+        if (concatToSprintf.isAvailable(project, editor, element)) {
             try {
                 tuple = StringConcatenationToHeredoc.useSprintf(
                         project, editor, element,
-                        parentStatement, topConcatenation, intention);
+                        parentStatement, topConcatenation, concatToSprintf);
             } catch (UnexpectedException e) {
-                System.out.println("Could not generate hereddoc content: " + project + editor + element + parentStatement + topConcatenation + intention);
+                System.out.println("Could not generate hereddoc content: " + project + editor + element + parentStatement + topConcatenation + concatToSprintf);
                 e.printStackTrace();
             }
         } else {
@@ -225,10 +242,15 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
 
         // remove quotes around string
         String quote = String.valueOf(stringToInterpolate.charAt(0));
+        if (!quote.equals("\"") && !quote.equals("'")) {
+            // sanity check
+            throw new UnexpectedException("Quote is not a quote: " + quote);
+        }
         if (!stringToInterpolate.startsWith(quote) && !stringToInterpolate.endsWith(quote)) {
             // sanity check
             throw new UnexpectedException("String is malformed: " + stringToInterpolate);
         }
+        // remove quotes from string, because it will become a HEREDOC string
         stringToInterpolate = stringToInterpolate.substring(1, stringToInterpolate.length() - 1);
 
         // remove escaped characters if they equal the opening and closing quote (either ' or ")
@@ -238,7 +260,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
 
         // change all SIMPLE specifiers (%s, %d, %f) to %s
 
-        // match any %d,%s or %f, which is NOT preceded by another % (because that is "escaped")
+        // match any %d,%s or %f, which is NOT preceded by another % (because double percentage-sign means "escaped")
         String regexpMatchSpecifiers = "(?<!%)%[sdf]";
         Matcher m = Pattern.compile(regexpMatchSpecifiers).matcher(stringToInterpolate);
 
@@ -251,6 +273,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         System.out.println("sprinft context " + sprintfCall.getContext());
 
         // TODO : how to check that variables do not exist in scope: important to avoid confusion in same file
+        // TODO : how to generate variable name based on content and scope (intellij offers that?)
         // TODO : do we need the "Marks"?
         Map<String, Boolean> createdVariables = new HashMap<>();
         for(int i = 1; i < params.length; i++) {
@@ -328,8 +351,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
                 );
 
                 // add the whole assignment line before the statement (parent of sprintfCall) [missing]
-                Statement newTopStatement = statementBefore; // TODO: delete comment : // getNewTopStatement();
-                newTopStatement.getParent().addBefore(newFnCallAssignmentStatement, newTopStatement);
+                statementBefore.getParent().addBefore(newFnCallAssignmentStatement, statementBefore);
 
                 toAppend = StringConcatenationToHeredoc.formatVariableForHeredoc(newVarName);
             } else {
