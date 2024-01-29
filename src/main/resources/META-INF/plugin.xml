@@ -15,7 +15,7 @@
             <category>SDK intentions</category>
         </intentionAction>
         <intentionAction>
-            <className>org.intellij.sdk.intention.StringConcatenationToHeredoc</className>
+            <className>com.github.tognitos.intellijstringconcatheredocplugin.StringConcatenationToHeredoc</className>
             <category>PHP intentions</category>
         </intentionAction>
     </extensions>

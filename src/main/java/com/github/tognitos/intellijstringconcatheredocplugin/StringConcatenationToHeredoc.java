@@ -9,6 +9,7 @@ import com.intellij.openapi.project.Project;
 //import com.intellij.profiler.ultimate.hprof.visitors.ReferenceVisitor;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.psi.util.PsiTreeUtilKt;
 import com.intellij.util.IncorrectOperationException;
 import com.jetbrains.php.codeInsight.PhpScopeHolder;
 import com.jetbrains.php.lang.inspections.PhpScopeHolderVisitor;
@@ -83,7 +84,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
 
         // TODO implement for echo calls with a lot of `,` , only if any of the echo statements contain HTML or any expression
 
-        boolean available = this.isElementOrAncestorAConcatenation(element);
+        boolean available = StringConcatenationToHeredoc.isElementOrAncestorAConcatenation(element);
 
         System.out.println("Is available ? " + available);
 
@@ -95,7 +96,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
      * @return  true if passed element or any of its ancestors are ConcatenationExpression
      *          false otherwise
      */
-    public static boolean isElementOrAncestorAConcatenation(PsiElement element) {
+    private static boolean isElementOrAncestorAConcatenation(PsiElement element) {
         if (element == null) return false;
 
         return element instanceof ConcatenationExpression
@@ -109,7 +110,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
      * @return  true if passed element is located within an "echo" expression with commas
      *          false otherwise
      */
-    public static boolean isElementWithinEchoWithCommas(PsiElement element) {
+    private static boolean isElementWithinEchoWithCommas(PsiElement element) {
         if (element == null) return false;
 
         PhpEchoStatementImpl parentEchoStatement = PsiTreeUtil.getParentOfType(element, PhpEchoStatementImpl.class);
@@ -196,6 +197,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
             System.out.println("psiElement null, will not find parent statement");
             return null;
         }
+
         return PsiTreeUtil.getParentOfType(
                 psiElement,
                 Statement.class

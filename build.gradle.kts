@@ -34,9 +34,13 @@ plugins {
 group = properties("pluginGroup")
 version = properties("pluginVersion")
 
-// Configure project's dependencies
+// Configure project's dependencies sources
 repositories {
     mavenCentral()
+}
+
+dependencies {
+
 }
 
 // Configure Gradle IntelliJ Plugin - read more: https://github.com/JetBrains/gradle-intellij-plugin
@@ -135,6 +139,10 @@ tasks {
 
         // enable auto-reload when `runIde` is running, and `buildPlugin` is executed
         autoReloadPlugins.set(true)
+
+    }
+
+    test {
 
     }
 
