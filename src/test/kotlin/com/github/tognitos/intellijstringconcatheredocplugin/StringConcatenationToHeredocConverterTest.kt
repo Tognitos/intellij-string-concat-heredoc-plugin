@@ -53,7 +53,7 @@ class StringConcatenationToHeredocConverterTest : BasePlatformTestCase() {
 
     fun testIsAvailableEverywhereWithinEchoWithCommas() {
         // GIVEN
-        val psiFile = myFixture.configureByFile("templates/echo/with_commas.php")
+        val psiFile = myFixture.configureByFile("templates/echo_with_commas/simple.template.before.php")
 
 
         // WHEN/THEN
