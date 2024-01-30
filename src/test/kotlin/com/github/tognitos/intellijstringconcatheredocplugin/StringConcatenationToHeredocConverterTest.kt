@@ -46,7 +46,7 @@ class StringConcatenationToHeredocConverterTest : BasePlatformTestCase() {
         arrayOf(
             "not_available/caret_not_on_concat.php",
             "not_available/caret_not_on_echo_with_commas.php",
-            "not_available/caret_on_echo_but_no_commas.php",
+            "not_available/echo_without_commas.php",
             "not_available/empty.php",
         ).forEach { fileName -> doTestIntentionAvailability(fileName, StringConcatenationToHeredocConverter.INTENTION_HINT) }
     }
