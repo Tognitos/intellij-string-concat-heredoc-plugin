@@ -19,10 +19,6 @@ function existingFunctionWithParameter(int $num): string {
     return "existingFunction $num";
 }
 
-function nonExistingFunction() {
-    return '';
-}
-
 // the plugin is not responsible for verifying that the expression is correct, but rather that the behaviour
 // remains unaltered after the conversion
 $someVar = 'This '
@@ -30,7 +26,7 @@ $someVar = 'This '
     . ' '
     . 'complicated'
     . print_r($array, true)
-    . '<br /> Non existing function:'
+    . '<br /> Non-existing function:'
     . nonExistingFunction()
     . '<br /> Existing function:'
     . existingFunction()
