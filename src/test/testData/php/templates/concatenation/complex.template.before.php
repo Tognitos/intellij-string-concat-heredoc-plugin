@@ -23,7 +23,7 @@ function existingFunctionWithParameter(int $num): string {
 // remains unaltered after the conversion
 $someVar = 'This '
     . "could be $very \n"
-    . ' '
+    . ' '<caret>
     . 'complicated'
     . print_r($array, true)
     . '<br /> Non-existing function:'

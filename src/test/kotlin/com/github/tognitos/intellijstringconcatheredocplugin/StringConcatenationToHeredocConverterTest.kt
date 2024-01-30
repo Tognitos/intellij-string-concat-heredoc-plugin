@@ -17,6 +17,7 @@ class StringConcatenationToHeredocConverterTest : BasePlatformTestCase() {
     override fun getTestDataPath() = "src/test/testData/php"
 
     fun doTestIntentionAction(testName: String, hint: String?) {
+
         val beforeSuffix = ".template.before.php"
         val afterSuffix = ".template.after.php"
 
@@ -34,12 +35,17 @@ class StringConcatenationToHeredocConverterTest : BasePlatformTestCase() {
 
     fun testIntention() {
         arrayOf(
+            "templates/concatenation/simple",
+            "templates/concatenation/complex",
             "templates/concatenation/with_escapings",
             "templates/concatenation/within_array",
             "templates/concatenation/within_big_indentation",
 
             // TODO: add a converted echo
-        ).forEach { fileName -> doTestIntentionAction(fileName, StringConcatenationToHeredocConverter.INTENTION_HINT) }
+        ).forEach { fileName ->
+            println("calling doTestIntentionAction for : $fileName")
+            doTestIntentionAction(fileName, StringConcatenationToHeredocConverter.INTENTION_HINT)
+        }
     }
 
     fun testIsNotAvailable() {
