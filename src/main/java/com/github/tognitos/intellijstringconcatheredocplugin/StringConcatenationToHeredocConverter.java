@@ -269,6 +269,22 @@ public class StringConcatenationToHeredocConverter extends PsiElementBaseIntenti
         System.out.println("cleaned stringToInterpolate: " + stringToInterpolate);
         nl();
 
+        // TODO: replace literal "written-out" \n with actual line breaks in the HEREDOC
+        /*
+            for example
+            <<<HEREDOC
+            hello\nworld
+            HEREDOC;
+
+            would become
+            <<<HEREDOC
+            hello
+            world
+            HEREDOC;
+         */
+        // TODO read above
+
+
         // change all SIMPLE specifiers (%s, %d, %f) to %s
 
         // match any %d,%s or %f, which is NOT preceded by another % (because double percentage-sign means "escaped")
