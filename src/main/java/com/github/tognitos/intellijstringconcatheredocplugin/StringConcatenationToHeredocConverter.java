@@ -85,6 +85,8 @@ public class StringConcatenationToHeredocConverter extends PsiElementBaseIntenti
             return false;
         }
 
+        // TODO: add plugin settings to display intention with minimum amount of concatenation expressions and/or echo commas
+
         // TODO implement for echo calls with a lot of `,` , only if any of the echo statements contain HTML or any expression
         boolean isConcat = isElementOrAncestorAConcatenation(element);
         boolean isEchoWithCommas = isElementOrAncestorAEchoWithCommas(element);
