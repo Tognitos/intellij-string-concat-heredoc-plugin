@@ -79,12 +79,12 @@ class StringConcatenationToHeredocConverterTest : BasePlatformTestCase() {
 
         // WHEN/THEN
         val foundContainerElements = PsiTreeUtil.collectElements(phpFile, filter)
-        assertTrue(foundContainerElements.size >= 1)
+        assertTrue(foundContainerElements.isNotEmpty())
 
         // for concatenations, this will be the top-most element
         val firstContainingElement = foundContainerElements[0]
 
-        // when cursor is positioned within the echoStatement, regardless of where, it should return true
+        // when cursor is positioned within a matching statement, regardless of where, it should return true
         firstContainingElement.acceptChildren(object: PhpDepthLimitedRecursiveElementVisitor(){
             override fun visitPhpElement(element: PhpPsiElement) {
                 super.visitPhpElement(element)
