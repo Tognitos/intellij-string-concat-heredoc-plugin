@@ -156,11 +156,9 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
                 element,
                 PhpEchoStatementImpl::class.java
             ) ?: return false
-
-
-            // TODO: replace this with Visitor for better performance?
+            
             // if any direct child of the Echo statement is a comma, we are inside an echo with commas
-            return parentEchoStatement.node.getChildren(TokenSet.create(PhpTokenTypes.opCOMMA)).size > 0
+            return parentEchoStatement.node.getChildren(TokenSet.create(PhpTokenTypes.opCOMMA)).isNotEmpty()
         }
 
 
