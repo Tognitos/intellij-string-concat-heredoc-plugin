@@ -26,5 +26,6 @@ $newVarFnCall18 = nonExistingFunction();
 $newVarFnCall23 = existingFunction();
 $newVarFnCall29 = existingFunctionWithParameter(123);
 $someVar = <<<HEREDOC_DELIMITER
-This could be $very \n complicated{$newVarFnCall13}<br /> Non-existing function:{$newVarFnCall18}<br /> Existing function:{$newVarFnCall23}<br /> Existing function with parameter (123):{$newVarFnCall29}
+This could be $very 
+ complicated{$newVarFnCall13}<br /> Non-existing function:{$newVarFnCall18}<br /> Existing function:{$newVarFnCall23}<br /> Existing function with parameter (123):{$newVarFnCall29}
 HEREDOC_DELIMITER;

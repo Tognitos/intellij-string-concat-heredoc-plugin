@@ -8,7 +8,9 @@ $newVarFnCall19 = functionCall();
 $arr = [
     'entry1',
     <<<HEREDOC_DELIMITER
-{$newVarPhpExpression3}a{$newVarPhpExpression5}{$newVarPhpExpression7}\n{$givenCls->value}\n End :){$newVarFnCall19}
+{$newVarPhpExpression3}a{$newVarPhpExpression5}{$newVarPhpExpression7}
+{$givenCls->value}
+ End :){$newVarFnCall19}
 HEREDOC_DELIMITER,
     'entry3'
 ];

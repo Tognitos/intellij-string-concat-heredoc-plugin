@@ -97,11 +97,7 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
         val heredocPsi = PhpPsiElementFactory.createPhpPsiFromText(
             project,
             StringLiteralExpression::class.java,
-            """
-            <<<$heredocDelimiter
-            $heredocContent
-            $heredocDelimiter;
-            """.trimIndent()
+            " <<<$heredocDelimiter\n$heredocContent\n$heredocDelimiter;"
         )
         val topConcatenationStatement = PsiTreeUtil.getParentOfType(topConcatenation, Statement::class.java)!!
         val storeParent = topConcatenationStatement.parent
@@ -191,8 +187,13 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
 
                             is StringLiteralExpression -> {
                                 val contentToAppend: String =
-                                    if (concatenationOperand.isSingleQuote) PhpReplaceQuotesIntention.createLiteralWithChangedQuotes(concatenationOperand).contents
-                                    else concatenationOperand.contents
+                                    if (concatenationOperand.isSingleQuote)
+                                        // this intention takes already care of all escapings of newlines, dollars, etc...
+                                        PhpReplaceQuotesIntention.createLiteralWithChangedQuotes(concatenationOperand).contents
+                                    else
+                                        // string ready to be used as-is, but use actual newlines
+                                        concatenationOperand.contents.replace("\\n", "\n")
+
                                 heredocContent.append(contentToAppend)
                             }
 
@@ -248,22 +249,6 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
 
                 }
             })
-
-            // TODO: replace literal "written-out" \n with actual line breaks in the HEREDOC
-            /*
-            for example
-            <<<HEREDOC
-            hello\nworld
-            HEREDOC;
-
-            would become
-            <<<HEREDOC
-            hello
-            world
-            HEREDOC;
-         */
-            // TODO read above
-
             // TODO : how to check that variables do not exist in scope: important to avoid confusion in same file
             // TODO : how to generate variable name based on content and scope (intellij offers that?)
             // TODO : do we need the "Marks"?
