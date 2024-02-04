@@ -1,13 +1,16 @@
 <?php
 $givenCls = new stdClass();
 $givenCls->value = 'value of stdClass';
-$newVarPhpExpression1 = 5;
-$newVarPhpExpression2 = true;
-$newVarPhpExpression3 = null;
+$newVarPhpExpression3 = 5;
+$newVarPhpExpression5 = true;
+$newVarPhpExpression7 = null;
+$newVarFnCall19 = functionCall();
 $arr = [
     'entry1',
     <<<HEREDOC_DELIMITER
-{$newVarPhpExpression1}a{$newVarPhpExpression2}{$newVarPhpExpression3}{$givenCls->value}
+{$newVarPhpExpression3}a{$newVarPhpExpression5}{$newVarPhpExpression7}
+{$givenCls->value}
+ End :){$newVarFnCall19}
 HEREDOC_DELIMITER,
     'entry3'
 ];

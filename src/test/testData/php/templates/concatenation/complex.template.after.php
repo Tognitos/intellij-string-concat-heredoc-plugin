@@ -21,10 +21,11 @@ function existingFunctionWithParameter(int $num): string {
 
 // the plugin is not responsible for verifying that the expression is correct, but rather that the behaviour
 // remains unaltered after the conversion
-$newVarFnCall1 = print_r($array, true);
-$newVarFnCall2 = nonExistingFunction();
-$newVarFnCall3 = existingFunction();
-$newVarFnCall4 = existingFunctionWithParameter(123);
+$newVarFnCall13 = print_r($array, true);
+$newVarFnCall18 = nonExistingFunction();
+$newVarFnCall23 = existingFunction();
+$newVarFnCall29 = existingFunctionWithParameter(123);
 $someVar = <<<HEREDOC_DELIMITER
-This could be $very \n complicated{$newVarFnCall1}<br /> Non-existing function:{$newVarFnCall2}<br /> Existing function:{$newVarFnCall3}<br /> Existing function with parameter (123):{$newVarFnCall4}
+This could be $very 
+ complicated{$newVarFnCall13}<br /> Non-existing function:{$newVarFnCall18}<br /> Existing function:{$newVarFnCall23}<br /> Existing function with parameter (123):{$newVarFnCall29}
 HEREDOC_DELIMITER;

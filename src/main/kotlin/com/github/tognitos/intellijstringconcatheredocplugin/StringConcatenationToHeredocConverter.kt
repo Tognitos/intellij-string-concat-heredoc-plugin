@@ -9,18 +9,14 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.tree.TokenSet
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.IncorrectOperationException
-import com.jetbrains.php.codeInsight.PhpScopeHolder
-import com.jetbrains.php.lang.inspections.PhpScopeHolderVisitor
-import com.jetbrains.php.lang.intentions.strings.PhpConvertConcatenationToSprintfIntention
+import com.jetbrains.php.lang.intentions.PhpReplaceQuotesIntention
 import com.jetbrains.php.lang.lexer.PhpTokenTypes
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory
 import com.jetbrains.php.lang.psi.elements.*
 import com.jetbrains.php.lang.psi.elements.impl.PhpEchoStatementImpl
-import com.jetbrains.php.lang.psi.visitors.PhpElementVisitor
+import com.jetbrains.php.lang.psi.stubs.indexes.PhpDepthLimitedRecursiveElementVisitor
+import io.ktor.http.*
 import java.rmi.UnexpectedException
-import java.util.regex.Pattern
-
-internal class TupleHeredocSprintf(var heredoc: String, var sprintf: FunctionReference)
 
 /**
  * Implements an intention action to replace string concatenations with HEREDOC strings
@@ -59,20 +55,12 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
      * `false` for all other types of caret positions
      */
     override fun isAvailable(project: Project, editor: Editor, element: PsiElement): Boolean {
-        // Quick sanity check
-        if (element == null) {
-            return false
-        }
-
         // TODO: add plugin settings to display intention with minimum amount of concatenation expressions and/or echo commas
+        // TODO consider displaying intention only if expressions are present
 
-        // TODO implement for echo calls with a lot of `,` , only if any of the echo statements contain HTML or any expression
         val isConcat = isElementOrAncestorAConcatenation(element)
         val isEchoWithCommas = isElementOrAncestorAEchoWithCommas(element)
-        val available = isConcat || isEchoWithCommas
-        println(element.toString() + " parent: " + element.parent.toString())
-        println("Is available $available (isConcat=$isConcat;isEchoWithCommas=$isEchoWithCommas)")
-        return available
+        return isConcat || isEchoWithCommas
     }
 
     /**
@@ -95,53 +83,38 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
             ConcatenationExpression::class.java
         )
 
-        // basically the line where this Concatenation is present (e.g. `return` statement, assignment, fn call...)
-        val parentStatement = PsiTreeUtil.getParentOfType(
-            element,
-            Statement::class.java
-        )
-        // will be used to know where to declare variables for fn calls
-        val concatToSprintf = PhpConvertConcatenationToSprintfIntention()
-        var tuple: TupleHeredocSprintf? = null
-        if (concatToSprintf.isAvailable(project, editor, element)) {
-            try {
-                tuple = useSprintf(
-                    project, editor, element,
-                    parentStatement, topConcatenation, concatToSprintf
-                )
-            } catch (e: UnexpectedException) {
-                println("Could not generate hereddoc content: $project$editor$element$parentStatement$topConcatenation$concatToSprintf")
-                e.printStackTrace()
-            }
-        } else {
-            nl()
-            print("------------------------------")
-            println("Sprintf not available, therefore not doing anything: what's the point if concatenation does not contain any expression?")
-            print("------------------------------")
-            nl()
+        topConcatenation!!
+
+        val (extractedVariableDeclarations, heredocContent) = runCatching {
+            useVisitor(topConcatenation)
+        }.onFailure { e ->
+            e.printStackTrace()
             return
-        }
-
-
-        /*
-         * Structure of heredoc as a StringLiteralExpression:
-         *  - heredoc start (e.g. <<<DELIMITER)
-         *  - heredoc content (e.g. <div>Hi $username</div>)
-         *  - heredoc end (e.g. DELIMITER;)
-         */
+        }.getOrThrow()
 
         // TODO : let user pick delimiter, or choose based on interpreted content (e.g. HTML or JS or SQL)
         val heredocDelimiter = "HEREDOC_DELIMITER"
-        val heredoc = PhpPsiElementFactory.createPhpPsiFromText(
+        val heredocPsi = PhpPsiElementFactory.createPhpPsiFromText(
             project,
             StringLiteralExpression::class.java,
-            """
-                 <<<$heredocDelimiter
-                 ${tuple!!.heredoc}
-                 $heredocDelimiter;
-                 """.trimIndent()
+            " <<<$heredocDelimiter\n$heredocContent\n$heredocDelimiter;"
         )
-        tuple.sprintf.replace(heredoc)
+        val topConcatenationStatement = PsiTreeUtil.getParentOfType(topConcatenation, Statement::class.java)!!
+        val storeParent = topConcatenationStatement.parent
+
+        topConcatenation.replace(heredocPsi)
+
+        extractedVariableDeclarations.forEach { preStatementText ->
+            storeParent.let {
+                val preStatementPsi = PhpPsiElementFactory.createStatement(
+                    project,
+                    preStatementText
+                )
+                it.addBefore(
+                    preStatementPsi,
+                    topConcatenationStatement
+                )}
+        }
     }
 
     /**
@@ -183,218 +156,103 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
                 element,
                 PhpEchoStatementImpl::class.java
             ) ?: return false
-
-            // true = not within Echo
-
-//        PhpElementVisitor commaVisitor = new PhpElementVisitor() {
-//            @Override
-//            public void visitPhpElement(PhpPsiElement element) {
-//                super.visitPhpElement(element);
-//                // if found then throw StopVisitingException
-//            }
-//        };
-
-            // TODO: replace this with Visitor for better performance?
+            
             // if any direct child of the Echo statement is a comma, we are inside an echo with commas
-            return parentEchoStatement.node.getChildren(TokenSet.create(PhpTokenTypes.opCOMMA)).size > 0
+            return parentEchoStatement.node.getChildren(TokenSet.create(PhpTokenTypes.opCOMMA)).isNotEmpty()
         }
 
-        fun nl() {
-            println("\n")
-        }
-
-        fun findParentStatement(psiElement: PsiElement?): Statement? {
-            if (psiElement == null) {
-                println("psiElement null, will not find parent statement")
-                return null
-            }
-            return PsiTreeUtil.getParentOfType(
-                psiElement,
-                Statement::class.java
-            )
-        }
-
-        fun findChildSprintf(statement: Statement?): FunctionReference? {
-            val functionChildren = PsiTreeUtil.findChildrenOfType(
-                statement,
-                FunctionReference::class.java
-            )
-            for (functionReference in functionChildren) {
-                if (functionReference.name == "sprintf") {
-                    return functionReference
-                }
-            }
-            println("Could not find child of type sprintf, something must have gone wrong")
-            return null
-        }
 
         @Throws(UnexpectedException::class)
-        private fun useSprintf(
-            project: Project,
-            editor: Editor?,
-            element: PsiElement,
-            parentStatement: Statement?,
-            topConcatenation: ConcatenationExpression?,
-            intention: PhpConvertConcatenationToSprintfIntention
-        ): TupleHeredocSprintf {
-            if (!canModify(parentStatement)) {
-                println("cannot modify parentStatement $parentStatement")
-                println("cannot modify topConcatenation? " + canModify(topConcatenation))
-            }
+        private fun useVisitor(
+            topConcatenation: ConcatenationExpression
+        ): Pair<List<String>, String> {
+            val declarations = ArrayList<String>()
+            val heredocContent = StringBuilder()
 
-            // take note of what statement the concatenation is in
-            val statementBefore = findParentStatement(topConcatenation)
-            println("Statement before$statementBefore")
+            var i = 0;
+            topConcatenation.accept(object : PhpDepthLimitedRecursiveElementVisitor() {
+                override fun visitPhpElement(element: PhpPsiElement) {
+                    super.visitPhpElement(element)
+                    i++
 
-            // intention won't change the statementBefore, allowing us to find the generated sprintf
-            intention.startInWriteAction()
-            intention.invoke(project, editor!!, element)
+                    if (element !is ConcatenationExpression) {
+                        return;
+                    }
 
-            // find sprintf after intention invocation, as a child of the statement from before
-            val sprintfCall = findChildSprintf(statementBefore)
-            if (sprintfCall == null) {
-                println("Function is null?")
-                throw UnexpectedException("Containing function is null")
-            }
-            val params = sprintfCall.parameters
-            var stringToInterpolate = params[0].text
+                    arrayOf(element.leftOperand, element.rightOperand).forEach { concatenationOperand ->
+                        when (concatenationOperand) {
+                            is ConcatenationExpression -> Unit // do nothing, we will visit the children afterward
 
-            // remove quotes around string
-            val quote = stringToInterpolate[0].toString()
-            if (quote != "\"" && quote != "'") {
-                // sanity check
-                throw UnexpectedException("Quote is not a quote: $quote")
-            }
-            if (!stringToInterpolate.startsWith(quote) && !stringToInterpolate.endsWith(quote)) {
-                // sanity check
-                throw UnexpectedException("String is malformed: $stringToInterpolate")
-            }
-            // remove quotes from string, because it will become a HEREDOC string
-            stringToInterpolate = stringToInterpolate.substring(1, stringToInterpolate.length - 1)
+                            is StringLiteralExpression -> {
+                                val contentToAppend: String =
+                                    if (concatenationOperand.isSingleQuote)
+                                        // this intention takes already care of all escapings of newlines, dollars, etc...
+                                        PhpReplaceQuotesIntention.createLiteralWithChangedQuotes(concatenationOperand).contents
+                                    else
+                                        // string ready to be used as-is, but use actual newlines
+                                        concatenationOperand.contents.replace("\\n", "\n")
 
-            // remove escaped characters if they equal the opening and closing quote (either ' or ")
-            stringToInterpolate = stringToInterpolate.replace(("\\\\" + quote).toRegex(), quote)
-            println("cleaned stringToInterpolate: $stringToInterpolate")
-            nl()
-
-            // TODO: replace literal "written-out" \n with actual line breaks in the HEREDOC
-            /*
-            for example
-            <<<HEREDOC
-            hello\nworld
-            HEREDOC;
-
-            would become
-            <<<HEREDOC
-            hello
-            world
-            HEREDOC;
-         */
-            // TODO read above
+                                heredocContent.append(contentToAppend)
+                            }
 
 
-            // change all SIMPLE specifiers (%s, %d, %f) to %s
+                            is Variable -> {
+                                // always wrap in curly braces because if some letter follows the variable name in heredoc,
+                                // the wrong variable name will be matched (e.g. $juices vs {$juice}s)
+                                extractNameOfPhpVar(concatenationOperand).let{
+                                    // pre.append(bla)
+                                    heredocContent.append(formatVariableForHeredoc(it))
+                                }
+                            }
 
-            // match any %d,%s or %f, which is NOT preceded by another % (because double percentage-sign means "escaped")
-            val regexpMatchSpecifiers = "(?<!%)%[sdf]"
-            val m = Pattern.compile(regexpMatchSpecifiers).matcher(stringToInterpolate)
+                            is FieldReference, is ArrayAccessExpression -> {
+                                (concatenationOperand.text).let {
+                                    heredocContent.append(formatVariableForHeredoc(it))
+                                }
+                            }
 
-            // ironically this format string will be used for us to insert our own placeholders in a String.format call
-            val heredocContentWithPlaceholders = m.replaceAll("%s")
-            println("heredocContentWithPlaceholders\n$heredocContentWithPlaceholders")
-            nl()
-            val placeholdersValues = arrayOfNulls<String>(params.size - 1)
-            println("sprinft context " + sprintfCall.context)
+                            is AssignmentExpression -> {
+                                // add semicolon to the assignment expression, because it is missing within a concatenation expression
+                                declarations.add("${concatenationOperand.text};")
 
+                                // append variable name
+                                heredocContent.append(formatVariableForHeredoc(extractNameOfPhpVar(
+                                    concatenationOperand.variable as Variable
+                                )))
+                            }
+
+                            is FunctionReference -> {
+                                val newVarName = "\$newVarFnCall$i"
+
+                                // add the whole assignment line before the heredoc
+                                newVarName.let {
+                                    declarations.add("$newVarName=${concatenationOperand.text};")
+                                    heredocContent.append(formatVariableForHeredoc(newVarName))
+                                }
+                            }
+
+                            is PhpExpression -> {
+                                // TODO use text to create var name?
+                                val newVarName = "\$newVarPhpExpression$i"
+                                newVarName.let {
+                                    declarations.add("$newVarName=${concatenationOperand.text};")
+                                    heredocContent.append(formatVariableForHeredoc(newVarName))
+                                }
+                            }
+                            else -> {
+                                heredocContent.append("I_SHOULD_NOT_APPEAR")
+                            }
+                        }
+                    }
+
+                }
+            })
             // TODO : how to check that variables do not exist in scope: important to avoid confusion in same file
             // TODO : how to generate variable name based on content and scope (intellij offers that?)
             // TODO : do we need the "Marks"?
-            val createdVariables: Map<String, Boolean> = HashMap()
-            for (i in 1 until params.size) {
-                val param = params[i]
-                println("param at pos $i is : \t $param")
-                var toAppend: String?
-                toAppend = if (param is StringLiteralExpression) {
-                    param.getText()
-                } else if (param is Variable) {
-                    val variable = param
-                    println("name identifier of variable " + variable.nameIdentifier!!.text)
-                    println("name of variable second try: " + variable.nameNode!!.text)
-
-                    // always wrap in curly braces because if some letter follows the variable name in heredoc,
-                    // the wrong variable name will be matched (e.g. $juices vs {$juice}s)
-                    val newVarName = extractNameOfPhpVar(variable)
-                    formatVariableForHeredoc(newVarName)
-                } else if (param is FieldReference || param is ArrayAccessExpression) {
-                    formatVariableForHeredoc(param.text)
-                } else if (param is AssignmentExpression) {
-                    val assignmentExpression = param
-                    // add semi-colon to the assignment expression, since it did not have it in the string concatenation
-                    val newAssignmentStatement =
-                        PhpPsiElementFactory.createStatement(project, assignmentExpression.text + ";")
-
-                    // add the whole assignment line before the statement (parent of sprintfCall) [missing]
-                    statementBefore!!.parent.addBefore(newAssignmentStatement, statementBefore)
-
-                    // append variable name
-                    val variable = assignmentExpression.variable as Variable?
-                    val newVarName = extractNameOfPhpVar(
-                        variable!!
-                    )
-                    formatVariableForHeredoc(newVarName)
-                } else if (param is FunctionReference) {
-                    // if it's function call
-                    // add marker
-                    // create variable before statement (parent of sprintfCall, can be a return or assignment or even a fn call)
-                    // assign new variable = the function call
-                    // append name of variable to sb
-                    val newVarName = "\$newVarFnCall$i"
-                    val newFnCallAssignmentStatement = PhpPsiElementFactory.createStatement(
-                        project,
-                        newVarName + "=" + param.text + ";"
-                    )
-
-                    // add the whole assignment line before the statement (parent of sprintfCall) [missing]
-                    statementBefore!!.parent.addBefore(newFnCallAssignmentStatement, statementBefore)
-                    formatVariableForHeredoc(newVarName)
-                } else if (param is PhpExpression) {
-                    // probably do the same as for FunctionReference, just create a var
-
-                    // TODO use text to create var name?
-                    val newVarName = "\$newVarPhpExpression$i"
-                    val newFnCallAssignmentStatement = PhpPsiElementFactory.createStatement(
-                        project,
-                        newVarName + "=" + param.text + ";"
-                    )
-
-                    // add the whole assignment line before the statement (parent of sprintfCall) [missing]
-                    statementBefore!!.parent.addBefore(newFnCallAssignmentStatement, statementBefore)
-                    formatVariableForHeredoc(newVarName)
-                } else {
-                    "I_SHOULD_NOT_APPEAR"
-                }
-                placeholdersValues[i - 1] = toAppend
-            }
-            printScopesAndVariables(statementBefore)
             // TODO : reformat CONTENT of heredoc based on content type (e.g. format HTML decently if possible)
-            val heredocContent = String.format(heredocContentWithPlaceholders, *placeholdersValues as Array<Any?>)
-            println("Final version of `heredocContentWithPlaceholders` $heredocContentWithPlaceholders")
-            return TupleHeredocSprintf(heredocContent, sprintfCall)
-        }
 
-        fun printScopesAndVariables(target: Statement?) {
-//        Statement target = getNewTopStatement();
-            println("visiting stuff")
-            target!!.acceptChildren(object : PhpScopeHolderVisitor() {
-                override fun check(phpScopeHolder: PhpScopeHolder) {
-                    println("phpScopeHolder\n")
-                    println(phpScopeHolder)
-                }
-            })
-            println(target.context)
-            println(target.useScope)
-            println("stopped visiting")
-            nl()
+            return Pair(declarations, heredocContent.toString())
         }
 
         fun extractNameOfPhpVar(variable: Variable): String {
@@ -403,18 +261,6 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
 
         fun formatVariableForHeredoc(variableNameWithDollar: String): String {
             return String.format("{%s}", variableNameWithDollar)
-        }
-
-        fun useVisitor(parentStatement: Statement?, topConcatenation: ConcatenationExpression): String {
-            // TODO use PsiRecursiveElementWalkingVisitor to visit all concat parts
-            topConcatenation.acceptChildren(object : PhpElementVisitor() {
-                override fun visitPhpElement(element: PhpPsiElement) {
-                    super.visitPhpElement(element)
-                    println("[PHP EL]visited this element")
-                    println(element)
-                }
-            })
-            return "visitor used content"
         }
     }
 }
