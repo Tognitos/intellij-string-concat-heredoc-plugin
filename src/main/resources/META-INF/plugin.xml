@@ -11,11 +11,7 @@
 <!--        <applicationService serviceImplementation="com.github.tognitos.intellijstringconcatheredocplugin.services.MyApplicationService"/>-->
 <!--        <projectService serviceImplementation="com.github.tognitos.intellijstringconcatheredocplugin.services.MyProjectService"/>-->
         <intentionAction>
-            <className>org.intellij.sdk.intention.ConditionalOperatorConverter</className>
-            <category>SDK intentions</category>
-        </intentionAction>
-        <intentionAction>
-            <className>org.intellij.sdk.intention.StringConcatenationToHeredoc</className>
+            <className>com.github.tognitos.intellijstringconcatheredocplugin.StringConcatenationToHeredocConverter</className>
             <category>PHP intentions</category>
         </intentionAction>
     </extensions>

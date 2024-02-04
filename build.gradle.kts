@@ -34,9 +34,13 @@ plugins {
 group = properties("pluginGroup")
 version = properties("pluginVersion")
 
-// Configure project's dependencies
+// Configure project's dependencies sources
 repositories {
     mavenCentral()
+}
+
+dependencies {
+
 }
 
 // Configure Gradle IntelliJ Plugin - read more: https://github.com/JetBrains/gradle-intellij-plugin
@@ -58,6 +62,12 @@ changelog {
 
 // Configure Gradle Qodana Plugin - read more: https://github.com/JetBrains/gradle-qodana-plugin
 qodana {
+
+    // by default result path is $projectPath/build/results
+    // resultsPath.set("some/output/path")
+
+    // see defaults: https://www.jetbrains.com/help/qodana/qodana-gradle-plugin.html#qodana+%7B+%7D+extension+configuration
+
     cachePath.set(projectDir.resolve(".qodana").canonicalPath)
     reportPath.set(projectDir.resolve("build/reports/inspections").canonicalPath)
     saveReport.set(true)
@@ -127,9 +137,12 @@ tasks {
             }
         }
 
-
         // enable auto-reload when `runIde` is running, and `buildPlugin` is executed
         autoReloadPlugins.set(true)
+
+    }
+
+    test {
 
     }
 
