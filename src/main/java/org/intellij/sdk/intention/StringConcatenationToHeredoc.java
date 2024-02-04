@@ -27,99 +27,27 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.rmi.UnexpectedException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+class TupleHeredocSprintf {
+    public String heredoc;
+    public FunctionReference sprintf;
+
+    public TupleHeredocSprintf(String heredoc, FunctionReference sprintf) {
+        this.heredoc = heredoc;
+        this.sprintf = sprintf;
+    }
+}
 
 /**
  * Implements an intention action to replace a ternary statement with if-then-else.
  */
 @NonNls
 public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction implements IntentionAction {
-
-    public static class MyTreeChangeListener implements PsiTreeChangeListener {
-
-        public static FunctionReference sprintfCall = null;
-
-        @Override
-        public void beforeChildAddition(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void beforeChildRemoval(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void beforeChildReplacement(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void beforeChildMovement(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void beforeChildrenChange(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void beforePropertyChange(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void childAdded(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void childRemoved(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void childReplaced(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-            PsiElement oldChild = event.getOldChild();
-            PsiElement newChild = event.getNewChild();
-            System.out.println("old: " + oldChild);
-            System.out.println("new: " + newChild);
-
-            if (newChild instanceof FunctionReference && ((FunctionReference) newChild).getName().equals("sprintf")) {
-                MyTreeChangeListener.sprintfCall = (FunctionReference) newChild;
-                System.out.println("Found sprintfFunction reference!");
-            } else if (newChild != null) {
-                System.out.println("new child is instance of psiElement, usually a reference to the whole new document");
-//                System.out.println(newChild.getText());
-            }
-        }
-
-        @Override
-        public void childrenChanged(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void childMoved(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-
-        @Override
-        public void propertyChanged(@NotNull PsiTreeChangeEvent event) {
-            System.out.println(event.toString());
-        }
-    }
-
-    private static MyTreeChangeListener myTreeChangeListener = new MyTreeChangeListener();
 
     /**
      * If this action is applicable, returns the text to be shown in the list of intention actions available.
@@ -199,10 +127,6 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
      */
     public void invoke(@NotNull Project project, Editor editor, @NotNull PsiElement element)
             throws IncorrectOperationException {
-        // Get the factory for making new PsiElements, and the code style manager to format new statements
-//        final PsiElementFactory factory = JavaPsiFacade.getInstance(project).getElementFactory();
-        final CodeStyleManager codeStylist = CodeStyleManager.getInstance(project);
-
         // the "top" of the concatenation expression (if we have multiple concats, then there is a tree of Concatenations
         ConcatenationExpression topConcatenation = PsiTreeUtil.getTopmostParentOfType(element, ConcatenationExpression.class);
 
@@ -211,11 +135,11 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         // will be used to know where to declare variables for fn calls
 
         PhpConvertConcatenationToSprintfIntention intention = new PhpConvertConcatenationToSprintfIntention();
-        String heredocContent = null;
+        TupleHeredocSprintf tuple = null;
 
         if (intention.isAvailable(project, editor, element)) {
             try {
-                heredocContent = StringConcatenationToHeredoc.useSprintf(
+                tuple = StringConcatenationToHeredoc.useSprintf(
                         project, editor, element,
                         parentStatement, topConcatenation, intention);
             } catch (UnexpectedException e) {
@@ -224,15 +148,10 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
             }
         } else {
             nl();
-            nl();
             System.out.print("------------------------------");
-            System.out.println("Sprintf not available, therefore doing manually with Visitor");
-            System.out.println("Not implemented yet, maybe not even needed (what's the point if concatenation does not" +
-                    "contain any expression?");
+            System.out.println("Sprintf not available, therefore not doing anything: what's the point if concatenation does not contain any expression?");
             System.out.print("------------------------------");
             nl();
-            nl();
-//            heredocContent = this.useVisitor(parentStatement, topConcatenation);
             return;
         }
 
@@ -249,24 +168,35 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
         StringLiteralExpression heredoc = PhpPsiElementFactory.createPhpPsiFromText(
                 project,
                 StringLiteralExpression.class,
-                "<<<" + heredocDelimiter + "\n" + heredocContent + "\n" + heredocDelimiter + ";"
+                "<<<" + heredocDelimiter + "\n" + tuple.heredoc + "\n" + heredocDelimiter + ";"
         );
 
-        StringConcatenationToHeredoc.myTreeChangeListener.sprintfCall.replace(heredoc);
+        tuple.sprintf.replace(heredoc);
     }
 
-    public static Statement getNewTopStatement() {
-        Statement newTopStatement = PsiTreeUtil.getParentOfType(
-                StringConcatenationToHeredoc.myTreeChangeListener.sprintfCall,
+    public static Statement findParentStatement(PsiElement psiElement) {
+        if (psiElement == null) {
+            System.out.println("psiElement null, will not find parent statement");
+            return null;
+        }
+        return PsiTreeUtil.getParentOfType(
+                psiElement,
                 Statement.class
         );
-        System.out.println("new top statement " + newTopStatement);
-        return newTopStatement;
+    }
+    public static FunctionReference findChildSprintf(Statement statement) {
+        Collection<FunctionReference> functionChildren = PsiTreeUtil.findChildrenOfType(statement, FunctionReference.class);
+        for (FunctionReference functionReference : functionChildren) {
+            if (Objects.equals(functionReference.getName(), "sprintf")) {
+                return functionReference;
+            }
+        }
+
+        System.out.println("Could not find child of type sprintf, something must have gone wrong");
+        return null;
     }
 
-
-
-    public static String useSprintf(
+    public static TupleHeredocSprintf useSprintf(
             @NotNull Project project, Editor editor, @NotNull PsiElement element,
             Statement parentStatement, ConcatenationExpression topConcatenation, PhpConvertConcatenationToSprintfIntention intention) throws UnexpectedException {
         if (!PhpConvertConcatenationToSprintfIntention.canModify(parentStatement)) {
@@ -274,48 +204,21 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
             System.out.println("cannot modify topConcatenation? " + PhpConvertConcatenationToSprintfIntention.canModify(topConcatenation));
         }
 
-        PsiManager psiManager = PsiManager.getInstance(project);
+        // take note of what statement the concatenation is in
+        Statement statementBefore = findParentStatement(topConcatenation);
+        System.out.println("Statement before" + statementBefore);
 
-//        Disposable disposable = Disposer.newDisposable(project, "myTreeChangeListener for PhpConvertConcatenationToSprintfIntention");
-        psiManager.addPsiTreeChangeListener(StringConcatenationToHeredoc.myTreeChangeListener); // , disposable);
-
-        System.out.println("current element before sprintf intention");
-        System.out.println(element);
-        System.out.println("top concatenation element before sprintf intention");
-        System.out.println(topConcatenation);
-        PsiElement topConcatenationPrevSibling = topConcatenation.getPrevSibling();
-        System.out.println("topConcatenationPrevSibling before");
-        System.out.println(topConcatenationPrevSibling);
-
+        // intention won't change the statementBefore, allowing us to find the generated sprintf
         intention.startInWriteAction();
         intention.invoke(project, editor, element);
 
-
-        System.out.println("current element after sprintf intention");
-        System.out.println(element);
-        System.out.println("top concatenation element after sprintf intention");
-        System.out.println(topConcatenation);
-        System.out.println("topConcatenationPrevSibling after");
-        System.out.println(topConcatenationPrevSibling);
-
-
-
-
-        psiManager.removePsiTreeChangeListener(StringConcatenationToHeredoc.myTreeChangeListener);
-//        Disposer.dispose(disposable);
-
-        FunctionReference sprintfCall = (FunctionReference) StringConcatenationToHeredoc.myTreeChangeListener.sprintfCall;
+        // find sprintf after intention invocation, as a child of the statement from before
+        FunctionReference sprintfCall = findChildSprintf(statementBefore);
 
         if (sprintfCall == null) {
             System.out.println("Function is null?");
             throw new UnexpectedException("Containing function is null");
         }
-        else if (!"sprintf".equals(sprintfCall.getName())) {
-            System.out.println("Function is not sprintf?");
-            throw new UnexpectedException("Containing function is not sprintf call");
-        }
-
-        System.out.println("Are previous the same?" + (topConcatenationPrevSibling == sprintfCall.getPrevSibling()));
 
         PsiElement[] params = sprintfCall.getParameters();
         String stringToInterpolate = params[0].getText();
@@ -374,7 +277,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
                 Statement newAssignmentStatement = PhpPsiElementFactory.createStatement(project, assignmentExpression.getText() + ";");
 
                 // add the whole assignment line before the statement (parent of sprintfCall) [missing]
-                Statement newTopStatement = getNewTopStatement();
+                Statement newTopStatement = statementBefore; // TODO: delete comment : // getNewTopStatement();
                 newTopStatement.getParent().addBefore(newAssignmentStatement, newTopStatement);
 
                 // append variable name
@@ -394,7 +297,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
                 );
 
                 // add the whole assignment line before the statement (parent of sprintfCall) [missing]
-                Statement newTopStatement = getNewTopStatement();
+                Statement newTopStatement = statementBefore; // TODO: delete comment : // getNewTopStatement();
                 newTopStatement.getParent().addBefore(newFnCallAssignmentStatement, newTopStatement);
 
                 toAppend = StringConcatenationToHeredoc.formatVariableForHeredoc(newVarName);
@@ -425,7 +328,7 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
                 );
 
                 // add the whole assignment line before the statement (parent of sprintfCall) [missing]
-                Statement newTopStatement = getNewTopStatement();
+                Statement newTopStatement = statementBefore; // TODO: delete comment : // getNewTopStatement();
                 newTopStatement.getParent().addBefore(newFnCallAssignmentStatement, newTopStatement);
 
                 toAppend = StringConcatenationToHeredoc.formatVariableForHeredoc(newVarName);
@@ -435,16 +338,16 @@ public class StringConcatenationToHeredoc extends PsiElementBaseIntentionAction 
             placeholdersValues[i-1] = toAppend;
         }
 
-        printScopesAndVariables();
+        printScopesAndVariables(statementBefore);
         // TODO : reformat CONTENT of heredoc based on content type (e.g. format HTML decently if possible)
 
         String heredocContent = String.format(heredocContentWithPlaceholders, (Object[]) placeholdersValues);
         System.out.println("Final version of `heredocContentWithPlaceholders` " + heredocContentWithPlaceholders);
-        return heredocContent;
+        return new TupleHeredocSprintf(heredocContent, sprintfCall);
     }
 
-    public static void printScopesAndVariables(){
-        Statement target = getNewTopStatement();
+    public static void printScopesAndVariables(Statement target){
+//        Statement target = getNewTopStatement();
         System.out.println("visiting stuff");
         target.acceptChildren(new PhpScopeHolderVisitor() {
             @Override

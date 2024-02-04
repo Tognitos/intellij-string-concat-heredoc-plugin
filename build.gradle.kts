@@ -117,9 +117,16 @@ tasks {
     }
 
     runIde {
-        // specify to use local PhpStorm installation
-        // doc is wrong, do not use ideDir = ... because ideDir is read-only
-        ideDir.set(file("/Applications/PhpStorm.app/Contents"))
+        // specify to use local PhpStorm installation if available
+        file("/Applications/PhpStorm.app/Contents").let {
+            // TODO: find a way to understand whether you're in a ci job, then you would not do any of this
+            if (it.isFile) {
+                ideDir.set(it)
+            } else {
+                println("Could not find file at path ${it.path} : Are you inside a CI job?")
+            }
+        }
+
 
         // enable auto-reload when `runIde` is running, and `buildPlugin` is executed
         autoReloadPlugins.set(true)
