@@ -40,8 +40,7 @@ class StringConcatenationToHeredocConverterTest : BasePlatformTestCase() {
             "templates/concatenation/with_escapings",
             "templates/concatenation/within_array",
             "templates/concatenation/within_big_indentation",
-
-            // TODO: add a converted echo
+            
         ).forEach { fileName ->
             println("calling doTestIntentionAction for : $fileName")
             doTestIntentionAction(fileName, StringConcatenationToHeredocConverter.INTENTION_HINT)
