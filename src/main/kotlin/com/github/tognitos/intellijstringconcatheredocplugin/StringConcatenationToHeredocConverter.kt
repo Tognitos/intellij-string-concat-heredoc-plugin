@@ -89,7 +89,6 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
             return
         }.getOrThrow()
 
-        // TODO : let user pick delimiter, or choose based on interpreted content (e.g. HTML or JS or SQL)
         val heredocDelimiter = "HEREDOC_DELIMITER"
         val heredocPsi = PhpPsiElementFactory.createPhpPsiFromText(
             project,
