@@ -129,7 +129,6 @@ tasks {
     runIde {
         // specify to use local PhpStorm installation if available
         file("/Applications/PhpStorm.app/Contents").let {
-            // TODO: find a way to understand whether you're in a ci job, then you would not do any of this
             if (it.isFile) {
                 ideDir.set(it)
             } else {
