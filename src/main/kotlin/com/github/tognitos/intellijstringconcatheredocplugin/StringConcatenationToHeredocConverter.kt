@@ -55,9 +55,6 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
      * `false` for all other types of caret positions
      */
     override fun isAvailable(project: Project, editor: Editor, element: PsiElement): Boolean {
-        // TODO: add plugin settings to display intention with minimum amount of concatenation expressions and/or echo commas
-        // TODO consider displaying intention only if expressions are present
-
         val isConcat = isElementOrAncestorAConcatenation(element)
         val isEchoWithCommas = isElementOrAncestorAEchoWithCommas(element)
         return isConcat || isEchoWithCommas
@@ -156,7 +153,7 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
                 element,
                 PhpEchoStatementImpl::class.java
             ) ?: return false
-            
+
             // if any direct child of the Echo statement is a comma, we are inside an echo with commas
             return parentEchoStatement.node.getChildren(TokenSet.create(PhpTokenTypes.opCOMMA)).isNotEmpty()
         }
