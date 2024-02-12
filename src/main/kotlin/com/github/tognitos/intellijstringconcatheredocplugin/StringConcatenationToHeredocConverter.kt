@@ -9,12 +9,12 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.tree.TokenSet
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.IncorrectOperationException
-import com.jetbrains.php.lang.intentions.PhpReplaceQuotesIntention
 import com.jetbrains.php.lang.lexer.PhpTokenTypes
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory
 import com.jetbrains.php.lang.psi.elements.*
 import com.jetbrains.php.lang.psi.elements.impl.PhpEchoStatementImpl
 import com.jetbrains.php.lang.psi.stubs.indexes.PhpDepthLimitedRecursiveElementVisitor
+import com.jetbrains.php.util.PhpStringUtil
 import io.ktor.http.*
 import java.rmi.UnexpectedException
 
@@ -156,9 +156,17 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
                 element,
                 PhpEchoStatementImpl::class.java
             ) ?: return false
-            
+
             // if any direct child of the Echo statement is a comma, we are inside an echo with commas
             return parentEchoStatement.node.getChildren(TokenSet.create(PhpTokenTypes.opCOMMA)).isNotEmpty()
+        }
+
+        /**
+         * Adapted from PhpReplaceQuotesIntention
+         */
+        fun escapeString(t: String?): String {
+            val unescaped = PhpStringUtil.unescapeText(t, true)
+            return PhpStringUtil.escapeText(unescaped, false, setOf('\n', '"'))
         }
 
 
@@ -186,11 +194,12 @@ class StringConcatenationToHeredocConverter : PsiElementBaseIntentionAction(), I
                             is StringLiteralExpression -> {
                                 val contentToAppend: String =
                                     if (concatenationOperand.isSingleQuote)
-                                        // this intention takes already care of all escapings of newlines, dollars, etc...
-                                        PhpReplaceQuotesIntention.createLiteralWithChangedQuotes(concatenationOperand).contents
+                                        escapeString(concatenationOperand.contents)
                                     else
-                                        // string ready to be used as-is, but use actual newlines
-                                        concatenationOperand.contents.replace("\\n", "\n")
+                                        // string does not need to be escaped because it is an interpolation already
+                                        concatenationOperand.contents
+                                            .replace("\\n", "\n") // use actual newlines
+                                            .replace("\\\"", "\"") // unescape previously escaped double quotes
 
                                 heredocContent.append(contentToAppend)
                             }

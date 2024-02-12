@@ -12,8 +12,10 @@ $someVar =  '<caret>' . $existing .
             'I actually escape single quotes because it is necessary: \'BLA\'' . "\n" .
             "I actually escape double quotes because it is necessary: \"BLA\"" . "\n" .
 
-            "I \'escape\' single quotes for some future processing reasons" . "\n" .
-            'I \"escape\" double quotes for some future processing reasons' . "\n" .
+            "I \'escape\'
+\t\t\t single quotes for some future processing reasons" . "\n" .
+            'I \"escape\"
+            double quotes for some future processing reasons' . "\n" .
 
             'I actually escape single quotes because \n it is necessary, but I also want to print backslashes: \\\'BLA\\\'' . "\n" .
             "I actually escape double quotes because it is necessary, but I also want to print backslashes: \\\"BLA\\\"" . "\n" .
